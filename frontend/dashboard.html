@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dashboard</title>
+    <style>
+        body { font-family: Arial; padding: 20px; }
+        .header { background: #333; color: white; padding: 15px; margin-bottom: 20px; }
+        button { background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; float: right; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>Dashboard</h2>
+        <button onclick="logout()">Logout</button>
+    </div>
+    <h3>Welcome to Task Manager!</h3>
+    <p>Login successful! Your token is working.</p>
+
+    <script>
+        const token = localStorage.getItem('token');
+        if (!token) {
+            window.location.href = 'login.html';
+        }
+        
+        function logout() {
+            localStorage.clear();
+            window.location.href = 'login.html';
+        }
+    </script>
+</body>
+</html>
