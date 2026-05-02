@@ -1,46 +1,36 @@
-require('dotenv').config();
-
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
+require('dotenv').config();
+
 const app = express();
 
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Environment variables
-const MONGODB_URL = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/taskmanager';
-const PORT = process.env.PORT || 5000;
-
 // Database connection
-mongoose.connect(MONGODB_URL)
-    .then(() => console.log('✅ Database connected'))
-    .catch(err => console.log('❌ DB error:', err));
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://user3:abdul@cluster0.ttqmrnu.mongodb.net/taskmanager?retryWrites=true&w=majority';
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB connected'))
+  .catch(err => console.log('MongoDB error:', err));
 
 // Routes
-const authRoutes = require('./routes/auth');
-const taskRoutes = require('./routes/tasks');
-const projectRoutes = require('./routes/projects');
+app.use('/api/auth', require('./routes/auth'));
+app.use('/api/tasks', require('./routes/tasks'));
+app.use('/api/projects', require('./routes/projects'));
 
-app.use('/api/auth', authRoutes);
-app.use('/api/tasks', taskRoutes);
-app.use('/api/projects', projectRoutes);
+// Serve frontend
+app.use(express.static(path.join(__dirname, '../frontend')));
 
-// Serve static frontend files
-const frontendPath = path.join(__dirname, '..', 'frontend');
-app.use(express.static(frontendPath));
-
-// Handle all other routes (SPA support)
+// Root route
 app.get('*', (req, res) => {
-    // Agar API route hai toh 404 bhejo
-    if (req.path.startsWith('/api/')) {
-        return res.status(404).json({ message: 'API route not found' });
-    }
-    // Nahi toh frontend ka index.html bhejo
-    res.sendFile(path.join(frontendPath, 'index.html'));
+  res.sendFile(path.join(__dirname, '../frontend', 'index.html'));
 });
 
+const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
-    console.log(`✅ Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
