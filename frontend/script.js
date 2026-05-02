@@ -124,16 +124,35 @@ function checkUserRole() {
 
 async function loadProjects() {
     const token = localStorage.getItem('token');
+    const container = document.getElementById('projectsList');
+    container.innerHTML = '<div class="loading">Loading projects...</div>';
+
     try {
         const response = await fetch(`${API_URL}/projects`, {
             headers: { 'Authorization': `Bearer ${token}` }
         });
 
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            console.error('Failed to load projects:', response.status, error);
+            if (response.status === 401) {
+                logout();
+                return;
+            }
+            container.innerHTML = `<p>Failed to load projects: ${error.message || 'Unknown error'}</p>`;
+            return;
+        }
+
         const projects = await response.json();
+        if (!Array.isArray(projects)) {
+            console.error('Unexpected project list response:', projects);
+            container.innerHTML = '<p>Unable to load project list</p>';
+            return;
+        }
         renderProjects(projects);
     } catch (err) {
         console.error('Failed to load projects:', err);
-        document.getElementById('projectsList').innerHTML = '<p>Failed to load projects</p>';
+        container.innerHTML = '<p>Failed to load projects</p>';
     }
 }
 
@@ -256,7 +275,8 @@ document.getElementById('saveProjectBtn').addEventListener('click', async () => 
     const description = document.getElementById('projectDesc').value;
     const token = localStorage.getItem('token');
 
-    if (!name) {
+    const trimmedName = name.trim();
+    if (!trimmedName) {
         alert('Project name is required');
         return;
     }
@@ -268,16 +288,19 @@ document.getElementById('saveProjectBtn').addEventListener('click', async () => 
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${token}`
             },
-            body: JSON.stringify({ name, description })
+            body: JSON.stringify({ name: trimmedName, description })
         });
+
+        const data = await response.json();
+        console.log('Create project response:', response.status, data);
 
         if (response.ok) {
             document.getElementById('projectName').value = '';
             document.getElementById('projectDesc').value = '';
             projectModal.style.display = 'none';
-            loadProjects();
+            await loadProjects();
         } else {
-            alert('Failed to create project');
+            alert(data.message || 'Failed to create project');
         }
     } catch (err) {
         console.error('Error creating project:', err);

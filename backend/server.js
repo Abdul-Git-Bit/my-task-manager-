@@ -55,7 +55,7 @@ app.post('/api/auth/signup', async (req, res) => {
         const { name, email, password, role } = req.body;
         const existing = await User.findOne({ email });
         if (existing) return res.status(400).json({ message: 'User exists' });
-        
+
         const hashed = await bcrypt.hash(password, 10);
         const user = new User({ name, email, password: hashed, role });
         await user.save();
@@ -70,10 +70,10 @@ app.post('/api/auth/login', async (req, res) => {
         const { email, password } = req.body;
         const user = await User.findOne({ email });
         if (!user) return res.status(400).json({ message: 'User not found' });
-        
+
         const valid = await bcrypt.compare(password, user.password);
         if (!valid) return res.status(400).json({ message: 'Wrong password' });
-        
+
         const token = jwt.sign({ userId: user._id, role: user.role }, 'my_secret_key');
         res.json({ token, user: { id: user._id, name: user.name, role: user.role } });
     } catch (err) {
@@ -86,15 +86,18 @@ app.post('/api/auth/login', async (req, res) => {
 app.get('/api/projects', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
-        if (!token) return res.json([]);
-        
+        if (!token) return res.status(401).json({ message: 'Unauthorized' });
+
         const decoded = jwt.verify(token, 'my_secret_key');
         const projects = await Project.find({
             $or: [{ owner: decoded.userId }, { members: decoded.userId }]
         }).populate('members', 'name email');
         res.json(projects);
     } catch (err) {
-        res.json([]);
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Invalid or expired token' });
+        }
+        res.status(500).json({ message: err.message });
     }
 });
 
@@ -102,10 +105,15 @@ app.post('/api/projects', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         const decoded = jwt.verify(token, 'my_secret_key');
+        const name = req.body.name?.trim();
+        if (!name) {
+            return res.status(400).json({ message: 'Project name is required' });
+        }
+
         const project = new Project({
-            name: req.body.name,
+            name,
             description: req.body.description,
             owner: decoded.userId,
             members: [decoded.userId]
@@ -114,6 +122,9 @@ app.post('/api/projects', async (req, res) => {
         await project.populate('members', 'name email');
         res.status(201).json(project);
     } catch (err) {
+        if (err.name === 'JsonWebTokenError' || err.name === 'TokenExpiredError') {
+            return res.status(401).json({ message: 'Invalid or expired token' });
+        }
         res.status(500).json({ message: err.message });
     }
 });
@@ -122,19 +133,19 @@ app.post('/api/projects/:projectId/members', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         const decoded = jwt.verify(token, 'my_secret_key');
         const project = await Project.findById(req.params.projectId);
         if (!project) return res.status(404).json({ message: 'Project not found' });
-        
+
         const user = await User.findOne({ email: req.body.email });
         if (!user) return res.status(404).json({ message: 'User not found' });
-        
+
         if (!project.members.includes(user._id)) {
             project.members.push(user._id);
             await project.save();
         }
-        
+
         await project.populate('members', 'name email');
         res.json({ project });
     } catch (err) {
@@ -148,7 +159,7 @@ app.get('/api/tasks/project/:projectId', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.json([]);
-        
+
         const tasks = await Task.find({ project: req.params.projectId })
             .populate('assignedTo', 'name email');
         res.json(tasks);
@@ -161,7 +172,7 @@ app.post('/api/tasks', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         const decoded = jwt.verify(token, 'my_secret_key');
         const task = new Task({
             title: req.body.title,
@@ -183,7 +194,7 @@ app.put('/api/tasks/:taskId', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         const task = await Task.findByIdAndUpdate(
             req.params.taskId,
             { status: req.body.status },
@@ -199,7 +210,7 @@ app.delete('/api/tasks/:taskId', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.status(401).json({ message: 'Unauthorized' });
-        
+
         await Task.findByIdAndDelete(req.params.taskId);
         res.json({ message: 'Task deleted' });
     } catch (err) {
