@@ -1,4 +1,4 @@
-const API_URL = window.location.origin + '/api';
+const API_URL = '';
 
 let currentProject = null;
 let allUsers = [];
