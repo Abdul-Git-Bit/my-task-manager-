@@ -19,7 +19,6 @@ mongoose.connect(MONGO_URI)
 
 // ============ SCHEMAS ============
 
-// User Schema
 const UserSchema = new mongoose.Schema({
     name: String,
     email: { type: String, unique: true },
@@ -28,7 +27,6 @@ const UserSchema = new mongoose.Schema({
 });
 const User = mongoose.model('User', UserSchema);
 
-// Project Schema
 const ProjectSchema = new mongoose.Schema({
     name: { type: String, required: true },
     description: String,
@@ -38,7 +36,6 @@ const ProjectSchema = new mongoose.Schema({
 });
 const Project = mongoose.model('Project', ProjectSchema);
 
-// Task Schema
 const TaskSchema = new mongoose.Schema({
     title: { type: String, required: true },
     description: String,
@@ -86,7 +83,6 @@ app.post('/api/auth/login', async (req, res) => {
 
 // ============ PROJECT ROUTES ============
 
-// Get all projects
 app.get('/api/projects', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
@@ -95,14 +91,13 @@ app.get('/api/projects', async (req, res) => {
         const decoded = jwt.verify(token, 'my_secret_key');
         const projects = await Project.find({
             $or: [{ owner: decoded.userId }, { members: decoded.userId }]
-        });
+        }).populate('members', 'name email');
         res.json(projects);
     } catch (err) {
         res.json([]);
     }
 });
 
-// Create project
 app.post('/api/projects', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
@@ -116,7 +111,32 @@ app.post('/api/projects', async (req, res) => {
             members: [decoded.userId]
         });
         await project.save();
+        await project.populate('members', 'name email');
         res.status(201).json(project);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.post('/api/projects/:projectId/members', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'Unauthorized' });
+        
+        const decoded = jwt.verify(token, 'my_secret_key');
+        const project = await Project.findById(req.params.projectId);
+        if (!project) return res.status(404).json({ message: 'Project not found' });
+        
+        const user = await User.findOne({ email: req.body.email });
+        if (!user) return res.status(404).json({ message: 'User not found' });
+        
+        if (!project.members.includes(user._id)) {
+            project.members.push(user._id);
+            await project.save();
+        }
+        
+        await project.populate('members', 'name email');
+        res.json({ project });
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
@@ -124,13 +144,13 @@ app.post('/api/projects', async (req, res) => {
 
 // ============ TASK ROUTES ============
 
-app.get('/api/tasks', async (req, res) => {
+app.get('/api/tasks/project/:projectId', async (req, res) => {
     try {
         const token = req.headers.authorization?.split(' ')[1];
         if (!token) return res.json([]);
         
-        const decoded = jwt.verify(token, 'my_secret_key');
-        const tasks = await Task.find({ assignedTo: decoded.userId });
+        const tasks = await Task.find({ project: req.params.projectId })
+            .populate('assignedTo', 'name email');
         res.json(tasks);
     } catch (err) {
         res.json([]);
@@ -147,23 +167,54 @@ app.post('/api/tasks', async (req, res) => {
             title: req.body.title,
             description: req.body.description,
             project: req.body.projectId,
-            assignedTo: req.body.assignedTo || decoded.userId,
+            assignedTo: req.body.assignedTo,
             dueDate: req.body.dueDate,
             priority: req.body.priority
         });
         await task.save();
+        await task.populate('assignedTo', 'name email');
         res.status(201).json(task);
     } catch (err) {
         res.status(500).json({ message: err.message });
     }
 });
 
-// Test route
+app.put('/api/tasks/:taskId', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'Unauthorized' });
+        
+        const task = await Task.findByIdAndUpdate(
+            req.params.taskId,
+            { status: req.body.status },
+            { new: true }
+        ).populate('assignedTo', 'name email');
+        res.json(task);
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+app.delete('/api/tasks/:taskId', async (req, res) => {
+    try {
+        const token = req.headers.authorization?.split(' ')[1];
+        if (!token) return res.status(401).json({ message: 'Unauthorized' });
+        
+        await Task.findByIdAndDelete(req.params.taskId);
+        res.json({ message: 'Task deleted' });
+    } catch (err) {
+        res.status(500).json({ message: err.message });
+    }
+});
+
+// ============ TEST ROUTE ============
+
 app.get('/api/test', (req, res) => {
     res.json({ message: 'Backend is working!' });
 });
 
 // ============ SERVE FRONTEND ============
+
 app.use(express.static(path.join(__dirname, '../frontend')));
 
 app.get('*', (req, res) => {
@@ -172,6 +223,8 @@ app.get('*', (req, res) => {
     }
     res.sendFile(path.join(__dirname, '../frontend', 'index.html'));
 });
+
+// ============ START SERVER ============
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, '0.0.0.0', () => {
