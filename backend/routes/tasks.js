@@ -4,18 +4,18 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
-// Create task (Assign to user)
+
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const { title, description, projectId, assignedTo, dueDate, priority } = req.body;
 
-        // Check if project exists and user has access
+        
         const project = await Project.findById(projectId);
         if (!project) {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Check if user is project member or admin
+        
         const isMember = project.members.includes(req.user.userId);
         const user = await User.findById(req.user.userId);
         const isAdmin = user.role === 'admin';
@@ -41,7 +41,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
-// Get tasks for a project
+
 router.get('/project/:projectId', authMiddleware, async (req, res) => {
     try {
         const tasks = await Task.find({ project: req.params.projectId })
@@ -54,7 +54,7 @@ router.get('/project/:projectId', authMiddleware, async (req, res) => {
     }
 });
 
-// Get my tasks (assigned to me)
+
 router.get('/my-tasks', authMiddleware, async (req, res) => {
     try {
         const tasks = await Task.find({ assignedTo: req.user.userId })
@@ -67,7 +67,7 @@ router.get('/my-tasks', authMiddleware, async (req, res) => {
     }
 });
 
-// Get overdue tasks
+
 router.get('/overdue', authMiddleware, async (req, res) => {
     try {
         const tasks = await Task.find({
@@ -82,7 +82,7 @@ router.get('/overdue', authMiddleware, async (req, res) => {
     }
 });
 
-// Update task status
+
 router.put('/:id', authMiddleware, async (req, res) => {
     try {
         const task = await Task.findById(req.params.id);
@@ -91,7 +91,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ message: 'Task not found' });
         }
 
-        // Check if user is assigned to this task or is admin
+        
         const user = await User.findById(req.user.userId);
         if (task.assignedTo.toString() !== req.user.userId && user.role !== 'admin') {
             return res.status(403).json({ message: 'Not assigned to this task' });
@@ -109,7 +109,7 @@ router.put('/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// Delete task
+
 router.delete('/:id', authMiddleware, async (req, res) => {
     try {
         const task = await Task.findById(req.params.id);
@@ -118,7 +118,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
             return res.status(404).json({ message: 'Task not found' });
         }
 
-        // Only admin or task creator can delete
+        
         const user = await User.findById(req.user.userId);
         if (user.role !== 'admin' && task.assignedBy.toString() !== req.user.userId) {
             return res.status(403).json({ message: 'Not authorized' });
@@ -131,7 +131,7 @@ router.delete('/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// Dashboard stats
+
 router.get('/dashboard/stats', authMiddleware, async (req, res) => {
     try {
         const totalTasks = await Task.countDocuments({ assignedTo: req.user.userId });

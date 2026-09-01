@@ -4,14 +4,14 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const path = require('path');
-require('dotenv').config();
+require('dotenv').config({ path: path.resolve(__dirname, '../.env') });
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
 // MongoDB Connection
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://simpleuser:simplepass123@cluster0.ttqmrnu.mongodb.net/taskmanager?retryWrites=true&w=majority';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/taskmanager';
 
 mongoose.connect(MONGO_URI)
     .then(() => console.log('✅ Database connected'))

@@ -3,7 +3,7 @@ const Project = require('../models/Project');
 const User = require('../models/User');
 const authMiddleware = require('../middleware/auth');
 
-// ✅ Create Project
+
 router.post('/', authMiddleware, async (req, res) => {
     try {
         const project = new Project({
@@ -20,7 +20,7 @@ router.post('/', authMiddleware, async (req, res) => {
     }
 });
 
-// ✅ Get All Projects (jisme user member hai)
+
 router.get('/', authMiddleware, async (req, res) => {
     try {
         const projects = await Project.find({
@@ -36,7 +36,7 @@ router.get('/', authMiddleware, async (req, res) => {
     }
 });
 
-// ✅ Get Single Project
+
 router.get('/:id', authMiddleware, async (req, res) => {
     try {
         const project = await Project.findById(req.params.id)
@@ -59,7 +59,7 @@ router.get('/:id', authMiddleware, async (req, res) => {
     }
 });
 
-// ✅ Add Member to Project (Sirf Admin/Owner)
+
 router.post('/:id/members', authMiddleware, async (req, res) => {
     try {
         const project = await Project.findById(req.params.id);
@@ -67,7 +67,7 @@ router.post('/:id/members', authMiddleware, async (req, res) => {
             return res.status(404).json({ message: 'Project not found' });
         }
 
-        // Check if user is admin or project owner
+        
         const user = await User.findById(req.user.userId);
         if (user.role !== 'admin' && project.owner.toString() !== req.user.userId) {
             return res.status(403).json({ message: 'Only admin or project owner can add members' });
@@ -91,7 +91,7 @@ router.post('/:id/members', authMiddleware, async (req, res) => {
     }
 });
 
-// ✅ Get All Users (for adding members)
+
 router.get('/users/all', authMiddleware, async (req, res) => {
     try {
         const user = await User.findById(req.user.userId);
